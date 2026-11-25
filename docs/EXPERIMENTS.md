@@ -9,7 +9,7 @@
 
 **Hypothesis:** Increasing FLUX inference steps from 4 → 8 meaningfully improves keyframe quality.  
 **Change:** `steps=4` vs `steps=8`, same seed, same prompt.  
-**Result:** (fill in)  
+**Result:**  
 **Decision:** (keep 4 / switch to 8 — why)
 
 ---
@@ -18,7 +18,7 @@
 
 **Hypothesis:** Adding "calm, warm, unhurried" to the TTS style instruction improves prosody.  
 **Change:** No style instruction vs. "calm, warm, unhurried".  
-**Result:** (fill in)  
+**Result:**  
 **Decision:** 
 
 ---
@@ -39,11 +39,4 @@
 **Result:**  
 **Decision:** 
 
----
 
-## EXP-005 — (add your own)
-
-**Hypothesis:**  
-**Change:**  
-**Result:**  
-**Decision:** 
