@@ -29,8 +29,10 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@db:5432/${POSTGRES_DB:-heritage_db}
+      - STORAGE_DIR=/storage
     volumes:
       - ./storage:/storage
+      - ./storyboard.json:/app/storyboard.json:ro
     depends_on:
       db:
         condition: service_healthy
@@ -39,6 +41,20 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    container_name: heritage_studio_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -38,7 +38,8 @@ def _post_gemini(
                         json=payload,
                     )
                 if res.status_code in (429, 500, 502, 503, 504) and attempt < retries - 1:
-                    time.sleep(2 ** attempt)
+                    wait_s = 20 * (attempt + 1) if res.status_code == 429 else 2 ** attempt
+                    time.sleep(wait_s)
                     continue
                 res.raise_for_status()
                 data = res.json()

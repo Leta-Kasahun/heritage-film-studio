@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from pipeline.context import (
     PipelineContext,
@@ -34,5 +35,6 @@ def run_narration_stage(
             )
             out.write_bytes(pcm_to_wav(raw_audio, mime))
             write_cache_hash(out, digest)
+            time.sleep(4)
         outputs.append(out)
     return outputs
