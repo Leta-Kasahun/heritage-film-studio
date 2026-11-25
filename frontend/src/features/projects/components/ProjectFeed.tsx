@@ -8,6 +8,7 @@ import { useProjects } from "@/features/projects/hooks/useProjects";
 import { AssetResponse } from "@/features/media/types";
 import { VideoCard } from "@/features/media/components/VideoCard";
 import { ImageGalleryCard } from "@/features/media/components/ImageGalleryCard";
+import { Reveal } from "@/components/ui/Reveal";
 import { ROUTES } from "@/constants/routes";
 import {
   IconPlay,
@@ -103,16 +104,17 @@ export function ProjectFeed({
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-        }}
-      >
+      <Reveal>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem",
+            marginBottom: "1.5rem",
+            flexWrap: "wrap",
+          }}
+        >
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <span
             style={{
@@ -153,6 +155,7 @@ export function ProjectFeed({
           })}
         </div>
       </div>
+      </Reveal>
 
       {query.isLoading && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
@@ -189,14 +192,14 @@ export function ProjectFeed({
             <IconFilm size={20} />
           </div>
           <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: "0.35rem" }}>
-            No {mediaFilter === "all" ? "media" : mediaFilter} generated yet
+            No {mediaFilter === "all" ? "films" : mediaFilter} yet
           </h3>
           <p style={{ color: "var(--text-3)", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
-            Create a heritage project to generate videos, audio narration, or keyframe images.
+            Tell a family story to generate your first film, audio narration, or gallery.
           </p>
           <Link href={ROUTES.newProject} className="btn btn-primary">
             <IconPlus size={15} />
-            Create New Project
+            Create a Film
           </Link>
         </div>
       )}
@@ -209,28 +212,31 @@ export function ProjectFeed({
             gap: "1.25rem",
           }}
         >
-          {videos.map((asset) => (
-            <VideoCard
-              key={asset.id}
-              asset={asset}
-              onDelete={handleRemove}
-            />
+          {videos.map((asset, idx) => (
+            <Reveal key={asset.id} delayMs={Math.min(idx * 55, 275)}>
+              <VideoCard
+                asset={asset}
+                onDelete={handleRemove}
+              />
+            </Reveal>
           ))}
 
-          {Array.from(imagesByProject.entries()).map(([projectId, imgs]) => (
-            <ImageGalleryCard
-              key={`gallery-${projectId}`}
-              images={imgs}
-              title={projectTitleMap.get(projectId) ?? "Narration Gallery"}
-            />
+          {Array.from(imagesByProject.entries()).map(([projectId, imgs], idx) => (
+            <Reveal key={`gallery-${projectId}`} delayMs={Math.min((videos.length + idx) * 55, 275)}>
+              <ImageGalleryCard
+                images={imgs}
+                title={projectTitleMap.get(projectId) ?? "Narration Gallery"}
+              />
+            </Reveal>
           ))}
 
-          {audios.map((asset) => (
-            <VideoCard
-              key={asset.id}
-              asset={asset}
-              onDelete={handleRemove}
-            />
+          {audios.map((asset, idx) => (
+            <Reveal key={asset.id} delayMs={Math.min((videos.length + imagesByProject.size + idx) * 55, 275)}>
+              <VideoCard
+                asset={asset}
+                onDelete={handleRemove}
+              />
+            </Reveal>
           ))}
         </div>
       )}

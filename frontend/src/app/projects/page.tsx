@@ -20,19 +20,19 @@ function ProjectsContent() {
               Heritage Films
             </h1>
             <p style={{ fontSize: "0.85rem", color: "var(--text-3)", marginTop: "0.2rem" }}>
-              {q ? `Results for "${q}"` : "Browse and manage your heritage films"}
+              {q ? `Results for "${q}"` : "Browse your films, audio stories, and galleries"}
             </p>
           </div>
           <Link href={ROUTES.newProject} className="btn btn-primary">
             <IconPlus size={15} />
-            New Film
+            Create Film
           </Link>
         </div>
       </section>
 
       <section style={{ background: "var(--surface-1)", minHeight: "65vh", padding: "2rem 0" }}>
         <div className="page-wrap">
-          <ProjectFeed title={q ? `Results for "${q}"` : "All Projects"} searchQuery={q} />
+          <ProjectFeed title={q ? `Results for "${q}"` : "All Films"} searchQuery={q} />
         </div>
       </section>
     </>
