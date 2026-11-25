@@ -1,0 +1,99 @@
+{
+  "logline": "From green beans washed in morning light to the third blessing cup, the Ethiopian coffee ceremony gathers a family across generations.",
+  "audience": "Ethiopian families at home and in the diaspora watching on mobile and desktop",
+  "intent": "To evoke the unhurried warmth, aroma, and community bond of the traditional Ethiopian buna ceremony",
+  "language": "am",
+  "music_style": "warm Ethiopian acoustic krar, gentle washint flute, soft ambient strings, 76 BPM, instrumental",
+  "style_block": "cinematic documentary, golden hour warm sunlight, 35mm film grain, Ethiopian highland earth tones, shallow depth of field",
+  "end_card_text": "Made with AI · Heritage Film Studio",
+  "shots": [
+    {
+      "index": 0,
+      "description": "Wide shot of fresh green grass scattered across a traditional Ethiopian living room floor at morning.",
+      "image_prompt": "Wide shot of fresh green ketema grass scattered on a warm earthen floor in a traditional Ethiopian home, morning sunlight streaming through a wooden window",
+      "motion_prompt": "slow push in over the green grass, gentle dust motes in sunlight",
+      "narration_text": "በኢትዮጵያ ቤት ውስጥ ጠዋት በለምለም ቄጠማ ሲነጠፍ የቡና ሥነ ሥርዓት ይጀምራል።",
+      "narration_en": "In an Ethiopian home, the coffee ceremony begins as fresh green grass is spread across the floor.",
+      "duration_s": 8,
+      "music_cue": "soft krar arpeggio enters",
+      "reason": "Establishes setting, ritual hospitality, and morning light"
+    },
+    {
+      "index": 1,
+      "description": "Close-up of hands washing raw green Ethiopian coffee beans in a shallow bowl of clear water.",
+      "image_prompt": "Close-up of an Ethiopian woman's hands washing green coffee beans in clear water inside a handmade clay bowl, warm golden light",
+      "motion_prompt": "slow downward tilt toward the water ripples",
+      "narration_text": "አረንጓዴው የቡና ፍሬ በንጹሕ ውኃ ታጥቦ በትዕግሥት ይዘጋጃል።",
+      "narration_en": "Green coffee beans are washed in clear water and prepared with quiet patience.",
+      "duration_s": 8,
+      "music_cue": "gentle washint flute joins",
+      "reason": "Shows care and tactile preparation before roasting"
+    },
+    {
+      "index": 2,
+      "description": "Medium close-up of coffee beans roasting on a flat black iron mitad pan over glowing charcoal.",
+      "image_prompt": "Medium close-up of dark glistening coffee beans roasting on a traditional black iron mitad pan over glowing red charcoal embers, wispy smoke rising",
+      "motion_prompt": "locked-off static frame, gentle smoke curling upward",
+      "narration_text": "በሚነድ ከሰል ላይ ሲቆላ መዓዛው መላውን ቤት ይሞላዋል።",
+      "narration_en": "Roasted over glowing embers, their rich aroma soon fills every corner of the house.",
+      "duration_s": 8,
+      "music_cue": "warm rhythmic pulse",
+      "reason": "Captures the sensory turning point of the ceremony"
+    },
+    {
+      "index": 3,
+      "description": "Medium shot of a mother in a white netela shawl wafting fragrant coffee smoke toward elders and children.",
+      "image_prompt": "Medium shot of an Ethiopian mother in a white cotton netela shawl gently wafting aromatic smoke from a roasting pan toward smiling family members",
+      "motion_prompt": "slow lateral tracking shot from pan to family faces",
+      "narration_text": "እናቴ የቡናውን ጢስ ወደ ቤተሰቡ ስታዞር ፍቅርና ሰላም ይሰማል።",
+      "narration_en": "As my mother wafts the fragrant smoke toward the family, warmth and peace settle over everyone.",
+      "duration_s": 8,
+      "music_cue": "strings swell gently",
+      "reason": "Connects the ritual action to family affection"
+    },
+    {
+      "index": 4,
+      "description": "Close-up of a wooden mukecha mortar and pestle grinding roasted beans by hand.",
+      "image_prompt": "Close-up of a traditional carved wooden mukecha mortar and pestle crushing freshly roasted dark coffee beans in warm golden light",
+      "motion_prompt": "slow push in on the rhythmic wooden pestle",
+      "narration_text": "በሙቀጫ ሲወቀጥ እያንዳንዱ ምት የቀድሞ ትውስታን ይቀሰቅሳል።",
+      "narration_en": "Pounded by hand in the wooden mortar, every beat awakens old family memories.",
+      "duration_s": 8,
+      "music_cue": "steady acoustic krar",
+      "reason": "Bridges physical craft with ancestral memory"
+    },
+    {
+      "index": 5,
+      "description": "Close-up of a black clay jebena pot simmering beside glowing embers with frankincense smoke.",
+      "image_prompt": "Close-up of a traditional black clay Ethiopian jebena coffee pot beside a glowing frankincense burner on a woven tray, warm golden light",
+      "motion_prompt": "slow vertical tilt from embers up the neck of the jebena",
+      "narration_text": "ጥቁሯ ጀበና በእሳቱ ዳር ስትፈላ የዕጣኑ ጢስ ወደ ላይ ይወጣል።",
+      "narration_en": "While the black clay jebena simmers by the fire, frankincense smoke rises softly.",
+      "duration_s": 8,
+      "music_cue": "music softens under voice",
+      "reason": "Highlights the iconic jebena vessel and sacred stillness"
+    },
+    {
+      "index": 6,
+      "description": "Close-up of dark coffee pouring cleanly from the jebena spout into small handleless cini cups.",
+      "image_prompt": "Close-up of rich dark Ethiopian coffee pouring in a steady stream from a black clay jebena spout into small white porcelain cini cups on a wooden tray",
+      "motion_prompt": "slow push in on the rising steam over the cups",
+      "narration_text": "አቦል፣ ቶናና በረካ ሲቀዱ ጎረቤትና ዘመድ በአንድ ማዕድ ይሰበሰባሉ።",
+      "narration_en": "As Abol, Tona, and Bereka are poured, neighbors and kin gather around one table.",
+      "duration_s": 8,
+      "music_cue": "main krar motif returns",
+      "reason": "Names the three traditional rounds and community bond"
+    },
+    {
+      "index": 7,
+      "description": "Wide shot of three generations smiling together over small cini cups in warm evening light.",
+      "image_prompt": "Wide shot of three generations of an Ethiopian family sitting together smiling over small white coffee cups in warm golden evening light",
+      "motion_prompt": "slow pull back revealing the warm room",
+      "narration_text": "ቡና ከመጠጥ በላይ የትውልዶች ድልድይና የሕይወታችን ቅርስ ነው።",
+      "narration_en": "More than a drink, Ethiopian coffee is a bridge across generations and our living heritage.",
+      "duration_s": 8,
+      "music_cue": "gentle final chord fade out",
+      "reason": "Delivers emotional resolution and heritage theme"
+    }
+  ]
+}

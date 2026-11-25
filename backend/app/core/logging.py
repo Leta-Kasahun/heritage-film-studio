@@ -45,4 +45,6 @@ class StopWatch:
 
     @property
     def elapsed_ms(self) -> float:
-        return getattr(self, "duration_ms", 0.0)
+        if hasattr(self, "duration_ms"):
+            return self.duration_ms
+        return (time.perf_counter() - self.start_time) * 1000
