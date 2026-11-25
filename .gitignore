@@ -1,8 +1,7 @@
 # Secrets
 .env
-.env.local
-backend/.env
-frontend/.env.local
+.env.*
+!.env.example
 
 # Storage & generated assets
 storage/*
@@ -22,12 +21,16 @@ venv/
 *.egg-info/
 
 # Node / Next.js
-frontend/node_modules/
-frontend/.next/
-frontend/out/
+node_modules/
+.next/
+out/
+coverage/
+.vercel
 *.tsbuildinfo
+next-env.d.ts
 
 # OS & logs
 .DS_Store
 Thumbs.db
+*.pem
 *.log
