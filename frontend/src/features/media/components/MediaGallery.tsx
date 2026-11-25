@@ -17,6 +17,28 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
     (a) => a.asset_type === "image" || a.asset_type === "video" || a.asset_type === "audio"
   );
 
+  if (loading && media.length === 0) {
+    return (
+      <div style={{
+        display: "grid",
+        gridTemplateColumns:
+          defaultRatio === "9:16"
+            ? "repeat(auto-fill, minmax(210px, 1fr))"
+            : "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: "1.15rem",
+      }}>
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <div key={idx} className="card" style={{ overflow: "hidden" }}>
+            <div className="skeleton-box" style={{ width: "100%", aspectRatio: defaultRatio === "9:16" ? "9 / 16" : "16 / 9" }} />
+            <div style={{ padding: "0.75rem 0.9rem" }}>
+              <div className="skeleton-box" style={{ height: 12, width: "55%", borderRadius: 4 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (!loading && media.length === 0) {
     return (
       <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>

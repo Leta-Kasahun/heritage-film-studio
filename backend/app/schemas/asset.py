@@ -16,7 +16,7 @@ class AssetBase(BaseModel):
     width_px: int | None = None
     height_px: int | None = None
     duration_seconds: Decimal | None = None
-    metadata_: dict = Field(default_factory=dict, alias="metadata")
+    metadata_: dict = Field(default_factory=dict, validation_alias="metadata_", serialization_alias="metadata")
 
 
 class AssetCreate(AssetBase):

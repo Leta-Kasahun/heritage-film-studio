@@ -11,7 +11,7 @@ class ShotBase(BaseModel):
     narration_text: str | None = None
     subtitle_text: str | None = None
     visual_prompt: str | None = None
-    metadata_: dict = Field(default_factory=dict, alias="metadata")
+    metadata_: dict = Field(default_factory=dict, validation_alias="metadata_", serialization_alias="metadata")
 
 
 class ShotCreate(ShotBase):

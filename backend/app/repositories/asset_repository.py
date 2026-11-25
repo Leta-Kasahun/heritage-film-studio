@@ -34,6 +34,14 @@ class AssetRepository:
     def get_by_id(self, asset_id: uuid.UUID) -> Asset | None:
         return self.db.get(Asset, asset_id)
 
+    def list_all(
+        self, skip: int = 0, limit: int = 24, asset_type: str | None = None
+    ) -> list[Asset]:
+        q = self.db.query(Asset)
+        if asset_type:
+            q = q.filter(Asset.asset_type == asset_type)
+        return q.order_by(Asset.created_at.desc()).offset(skip).limit(limit).all()
+
     def list_by_project(
         self, project_id: uuid.UUID, skip: int = 0, limit: int = 24
     ) -> list[Asset]:

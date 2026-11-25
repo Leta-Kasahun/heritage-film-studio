@@ -3,6 +3,16 @@ import { AssetResponse } from "../types";
 
 const STORAGE_BASE = API_BASE.replace(/\/api\/?$/, "");
 
+export function listAllAssets(
+  page = 1,
+  pageSize = 12,
+  assetType?: string
+): Promise<AssetResponse[]> {
+  const skip = (page - 1) * pageSize;
+  const typeParam = assetType ? `&asset_type=${encodeURIComponent(assetType)}` : "";
+  return apiFetch(`/assets/?skip=${skip}&limit=${pageSize}${typeParam}`);
+}
+
 export function listAssets(
   projectId: string,
   page = 1,

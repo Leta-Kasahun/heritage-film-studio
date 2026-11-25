@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useProjects, useDeleteProject } from "@/features/projects/hooks/useProjects";
-import { ProjectListItem } from "@/features/projects/types";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteAsset, listAllAssets } from "@/features/media/services/media-service";
+import { VideoCard } from "@/features/media/components/VideoCard";
 import { ROUTES } from "@/constants/routes";
-import { formatDate } from "@/utils/format";
-import { AspectRatio } from "@/features/media/types";
 import {
   IconPlay,
-  IconCalendar,
-  IconArrowRight,
-  IconDownload,
   IconFilm,
   IconImage,
   IconLoader,
   IconMic,
   IconPlus,
-  IconTrash,
 } from "@/components/ui/Icon";
 
 type MediaFilter = "all" | "video" | "audio" | "image";
@@ -29,71 +23,63 @@ interface Props {
   pageSize?: number;
 }
 
-function SkeletonCard() {
-  return (
-    <div className="card" style={{ overflow: "hidden" }}>
-      <div className="skeleton-box" style={{ width: "100%", aspectRatio: "16 / 9" }} />
-      <div style={{ padding: "0.95rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <div className="skeleton-box" style={{ height: 16, width: "70%", borderRadius: 4 }} />
-        <div className="skeleton-box" style={{ height: 12, width: "90%", borderRadius: 4 }} />
-      </div>
-    </div>
-  );
-}
-
 export function ProjectFeed({
-  title = "All Projects",
+  title = "Generated Media",
   searchQuery = "",
-  pageSize = 6,
+  pageSize = 9,
 }: Props) {
-  const { data: projects, isLoading, error } = useProjects();
-  const deleteProject = useDeleteProject();
+  const qc = useQueryClient();
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
-  const [visibleCount, setVisibleCount] = useState(pageSize);
-  const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const filtered = (projects ?? []).filter((p: ProjectListItem) => {
-    const itemType = p.settings?.output_type ?? "video";
-    if (mediaFilter !== "all" && itemType !== mediaFilter) return false;
+  const assetTypeParam = mediaFilter === "all" ? undefined : mediaFilter;
+
+  const query = useInfiniteQuery({
+    queryKey: ["all-assets", mediaFilter, pageSize],
+    queryFn: ({ pageParam }) => listAllAssets(pageParam, pageSize, assetTypeParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < pageSize ? undefined : allPages.length + 1,
+  });
+
+  const allItems = query.data?.pages.flat() ?? [];
+  const visible = allItems.filter((a) => {
+    if (a.asset_type === "subtitle") return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      p.title.toLowerCase().includes(q) ||
-      p.heritage_topic.toLowerCase().includes(q)
+      a.object_key.toLowerCase().includes(q) ||
+      a.role.toLowerCase().includes(q) ||
+      a.asset_type.toLowerCase().includes(q)
     );
   });
 
-  function handleRemove(p: ProjectListItem) {
-    if (!confirm(`Remove "${p.title}"?`)) return;
-    deleteProject.mutate(p.id);
-  }
+  const loading = query.isLoading || query.isFetchingNextPage;
+  const hasMore = !!query.hasNextPage;
 
-  const visible = filtered.slice(0, visibleCount);
-  const hasMore = visible.length < filtered.length;
-
-  useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [searchQuery, mediaFilter, pageSize]);
+  const handleRemove = useCallback(
+    async (assetId: string) => {
+      await deleteAsset(assetId);
+      qc.invalidateQueries({ queryKey: ["all-assets"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+    [qc]
+  );
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !hasMore || loadingMore) return;
+    if (!el || !hasMore || loading) return;
     const obs = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setLoadingMore(true);
-          setTimeout(() => {
-            setVisibleCount((c) => c + pageSize);
-            setLoadingMore(false);
-          }, 260);
+          query.fetchNextPage();
         }
       },
-      { rootMargin: "280px" }
+      { rootMargin: "300px", threshold: 0 }
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [hasMore, loadingMore, pageSize]);
+  }, [hasMore, loading, query]);
 
   return (
     <div>
@@ -148,21 +134,26 @@ export function ProjectFeed({
         </div>
       </div>
 
-      {isLoading && (
+      {query.isLoading && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <SkeletonCard key={idx} />
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="card" style={{ overflow: "hidden" }}>
+              <div className="skeleton-box" style={{ width: "100%", aspectRatio: "16 / 9" }} />
+              <div style={{ padding: "0.75rem 0.9rem" }}>
+                <div className="skeleton-box" style={{ height: 12, width: "55%", borderRadius: 4 }} />
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      {error && (
+      {query.isError && (
         <div className="card" style={{ padding: "1.5rem", textAlign: "center", color: "var(--text-2)", fontSize: "0.875rem" }}>
-          Unable to load projects right now. Please ensure the backend server is running.
+          Unable to load generated media right now. Please ensure the backend server is running.
         </div>
       )}
 
-      {!isLoading && !error && visible.length === 0 && (
+      {!query.isLoading && !query.isError && visible.length === 0 && (
         <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>
           <div style={{
             width: 44,
@@ -178,23 +169,19 @@ export function ProjectFeed({
             <IconFilm size={20} />
           </div>
           <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: "0.35rem" }}>
-            {searchQuery ? "No matching projects" : "No projects yet"}
+            No {mediaFilter === "all" ? "media" : mediaFilter} generated yet
           </h3>
           <p style={{ color: "var(--text-3)", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
-            {searchQuery
-              ? `No projects matched "${searchQuery}".`
-              : "Create your first heritage film, audio, or image collection."}
+            Create a heritage project to generate videos, audio narration, or keyframe images.
           </p>
-          {!searchQuery && (
-            <Link href={ROUTES.newProject} className="btn btn-primary">
-              <IconPlus size={15} />
-              Create New Project
-            </Link>
-          )}
+          <Link href={ROUTES.newProject} className="btn btn-primary">
+            <IconPlus size={15} />
+            Create New Project
+          </Link>
         </div>
       )}
 
-      {!isLoading && !error && visible.length > 0 && (
+      {!query.isLoading && !query.isError && visible.length > 0 && (
         <div
           style={{
             display: "grid",
@@ -202,184 +189,19 @@ export function ProjectFeed({
             gap: "1.25rem",
           }}
         >
-          {visible.map((p) => {
-            const outputType = p.settings?.output_type ?? "video";
-            const ratio = (p.settings?.aspect_ratios?.[0] as AspectRatio) ?? "16:9";
-            const Icon = outputType === "audio" ? IconMic : outputType === "image" ? IconImage : IconPlay;
-
-            return (
-              <article
-                key={p.id}
-                className="film-card"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  animation: "fadeIn 0.3s ease both",
-                }}
-              >
-                <Link
-                  href={ROUTES.preview(p.id)}
-                  style={{
-                    display: "block",
-                    position: "relative",
-                    width: "100%",
-                    aspectRatio: "16 / 9",
-                    background: "linear-gradient(135deg, var(--crimson-deep) 0%, #3A0712 100%)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      fontSize: "0.65rem",
-                      fontWeight: 600,
-                      padding: "0.15rem 0.45rem",
-                      borderRadius: "var(--radius-sm)",
-                      background: "rgba(15,15,15,0.68)",
-                      color: "#fff",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {outputType} · {ratio}
-                  </span>
-
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <span
-                      className="film-play-btn"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: "50%",
-                        background: "rgba(255,255,255,0.2)",
-                        border: "1.5px solid rgba(255,255,255,0.78)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Icon size={18} />
-                    </span>
-                  </span>
-                </Link>
-
-                <div style={{ padding: "0.95rem 1.1rem", flex: 1, display: "flex", flexDirection: "column" }}>
-                  <Link
-                    href={ROUTES.project(p.id)}
-                    style={{
-                      fontFamily: "var(--font-serif)",
-                      fontWeight: 700,
-                      fontSize: "1.02rem",
-                      color: "var(--text-1)",
-                      display: "block",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    {p.title}
-                  </Link>
-
-                  <p
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "var(--text-2)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      marginBottom: "0.85rem",
-                    }}
-                  >
-                    {p.heritage_topic}
-                  </p>
-
-                  <div
-                    style={{
-                      marginTop: "auto",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "0.5rem",
-                      paddingTop: "0.65rem",
-                      borderTop: "1px solid var(--border-soft)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.73rem", color: "var(--text-3)" }}>
-                        <IconCalendar size={12} />
-                        {formatDate(p.created_at)}
-                      </span>
-                      <StatusBadge status={p.status} />
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
-                      <Link
-                        href={ROUTES.preview(p.id)}
-                        title="Open & Download"
-                        aria-label={`Download ${p.title}`}
-                        className="btn btn-outline"
-                        style={{ padding: "0.28rem 0.45rem" }}
-                      >
-                        <IconDownload size={13} />
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(p)}
-                        title="Remove"
-                        aria-label={`Remove ${p.title}`}
-                        className="btn btn-ghost"
-                        style={{ padding: "0.28rem 0.4rem" }}
-                      >
-                        <IconTrash size={13} />
-                      </button>
-
-                      <Link
-                        href={ROUTES.project(p.id)}
-                        aria-label={`Open ${p.title}`}
-                        className="film-arrow-btn"
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          border: "1px solid var(--crimson)",
-                          color: "var(--crimson)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <IconArrowRight size={13} />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-
-          {loadingMore &&
-            Array.from({ length: 3 }).map((_, idx) => (
-              <SkeletonCard key={`sk-${idx}`} />
-            ))}
+          {visible.map((asset) => (
+            <VideoCard
+              key={asset.id}
+              asset={asset}
+              onDelete={handleRemove}
+            />
+          ))}
         </div>
       )}
 
       <div ref={sentinelRef} style={{ height: 1 }} />
 
-      {loadingMore && (
+      {query.isFetchingNextPage && (
         <div style={{ display: "flex", justifyContent: "center", padding: "1.25rem 0", color: "var(--crimson)" }}>
           <IconLoader size={18} />
         </div>

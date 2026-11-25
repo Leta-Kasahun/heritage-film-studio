@@ -1,51 +1,50 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteAsset, listAssets } from "../services/media-service";
-import { AssetResponse } from "../types";
 
 export function useAssets(projectId: string, pageSize = 12) {
-  const [items, setItems] = useState<AssetResponse[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const qc = useQueryClient();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-    setLoading(true);
-    try {
-      const batch = await listAssets(projectId, page, pageSize);
-      setItems((prev) => [...prev, ...batch]);
-      if (batch.length < pageSize) setHasMore(false);
-      else setPage((p) => p + 1);
-    } catch {
-      setHasMore(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, hasMore, page, projectId, pageSize]);
+  const query = useInfiniteQuery({
+    queryKey: ["assets", projectId, pageSize],
+    queryFn: ({ pageParam }) => listAssets(projectId, pageParam, pageSize),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < pageSize ? undefined : allPages.length + 1,
+    enabled: !!projectId,
+  });
 
-  const removeAsset = useCallback(async (assetId: string) => {
-    await deleteAsset(assetId);
-    setItems((prev) => prev.filter((item) => item.id !== assetId));
-  }, []);
+  const items = query.data?.pages.flat() ?? [];
+  const loading = query.isLoading || query.isFetchingNextPage;
+  const hasMore = !!query.hasNextPage;
+
+  const removeAsset = useCallback(
+    async (assetId: string) => {
+      await deleteAsset(assetId);
+      qc.invalidateQueries({ queryKey: ["assets", projectId] });
+      qc.invalidateQueries({ queryKey: ["all-assets"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+    [projectId, qc]
+  );
 
   useEffect(() => {
-    if (!sentinelRef.current) return;
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return;
     const obs = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          query.fetchNextPage();
+        }
+      },
       { rootMargin: "300px", threshold: 0 }
     );
-    obs.observe(sentinelRef.current);
+    obs.observe(el);
     return () => obs.disconnect();
-  }, [loadMore]);
-
-  useEffect(() => {
-    setItems([]);
-    setPage(1);
-    setHasMore(true);
-  }, [projectId]);
+  }, [hasMore, loading, query]);
 
   return { items, loading, hasMore, sentinelRef, removeAsset };
 }

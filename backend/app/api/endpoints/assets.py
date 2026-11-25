@@ -16,6 +16,16 @@ def create_asset(payload: AssetCreate, db: Session = Depends(get_db)):
     return AssetRepository(db).create(payload)
 
 
+@router.get("/", response_model=list[AssetResponse])
+def list_all_assets(
+    skip: int = 0,
+    limit: int = 24,
+    asset_type: str | None = None,
+    db: Session = Depends(get_db),
+):
+    return AssetRepository(db).list_all(skip=skip, limit=limit, asset_type=asset_type)
+
+
 @router.get("/project/{project_id}", response_model=list[AssetResponse])
 def list_assets_by_project(
     project_id: uuid.UUID,
