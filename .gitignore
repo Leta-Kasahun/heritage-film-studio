@@ -1,0 +1,33 @@
+# Secrets
+.env
+.env.local
+backend/.env
+frontend/.env.local
+
+# Storage & generated assets
+storage/*
+!storage/.gitkeep
+backend/uploads/
+backend/outputs/
+backend/heritage.db
+backend/runs.jsonl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+*.tsbuildinfo
+
+# OS & logs
+.DS_Store
+Thumbs.db
+*.log

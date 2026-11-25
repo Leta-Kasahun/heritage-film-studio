@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HeritageShortStoryboard",
+  "type": "object",
+  "required": ["logline", "audience", "intent", "language", "shots"],
+  "properties": {
+    "logline":    { "type": "string", "minLength": 10 },
+    "audience":   { "type": "string" },
+    "intent":     { "type": "string" },
+    "language":   { "type": "string" },
+    "music_style":{ "type": "string" },
+    "shots": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "required": ["index","description","image_prompt","narration_text","duration_s"],
+        "properties": {
+          "index":          { "type": "integer", "minimum": 0 },
+          "description":    { "type": "string" },
+          "image_prompt":   { "type": "string", "minLength": 20 },
+          "motion_prompt":  { "type": "string" },
+          "narration_text": { "type": "string" },
+          "narration_en":   { "type": "string" },
+          "duration_s":     { "type": "integer", "minimum": 3, "maximum": 15 },
+          "music_cue":      { "type": "string" },
+          "reason":         { "type": "string" }
+        }
+      }
+    }
+  }
+}
