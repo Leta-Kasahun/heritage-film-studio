@@ -25,6 +25,7 @@ from pipeline.stages.storyboard import run_storyboard_stage
 from pipeline.stages.subtitles import run_subtitles_stage
 
 STAGE_META: dict[str, tuple[str, str]] = {
+    "auto":       ("studio", "heritage-pipeline"),
     "script":     ("google", "gemini-3.8-flash"),
     "storyboard": ("google", "gemini-3.8-flash"),
     "keyframes":  ("cloudflare", "@cf/black-forest-labs/flux-1-schnell"),
@@ -177,6 +178,70 @@ def execute_stage_task(run_id: uuid.UUID, project_id: uuid.UUID, stage: str) -> 
                 outputs.append(final_mp4.name)
             project_repo.update_status(project, "done")
             output_data = {"videos": outputs}
+
+        elif stage == "auto":
+            output_type = project.settings.get("output_type", "video")
+
+            project_repo.update_status(project, "generating_script")
+            script_path = run_script_stage(
+                ctx,
+                topic=project.heritage_topic or project.title,
+                source_text=project.script_text or project.description or project.title,
+                language_code=project.language_code,
+            )
+            script_text = script_path.read_text(encoding="utf-8")
+            project_repo.update(project, ProjectUpdate(script_text=script_text))
+
+            project_repo.update_status(project, "generating_storyboard")
+            contract = run_storyboard_stage(
+                ctx,
+                script_text=script_text,
+                language_code=project.language_code,
+            )
+            shot_repo = ShotRepository(db)
+            for s in contract.shots:
+                shot_repo.create(
+                    ShotCreate(
+                        project_id=project.id,
+                        shot_number=s.index + 1,
+                        title=s.description[:180],
+                        duration_seconds=s.duration_s,
+                        narration_text=s.narration_text,
+                        subtitle_text=s.narration_en,
+                        visual_prompt=s.image_prompt,
+                    )
+                )
+
+            keyframes: list[Path] = []
+            if output_type in ("video", "image"):
+                project_repo.update_status(project, "generating_keyframes")
+                keyframes = run_keyframes_stage(ctx, contract)
+                for img in keyframes:
+                    _register_asset(db, project.id, run.id, img, "image", "keyframe", "image/jpeg", 1280, 720)
+
+            narrations: list[Path] = []
+            music: Path | None = None
+            if output_type in ("video", "audio"):
+                project_repo.update_status(project, "generating_narration")
+                narrations = run_narration_stage(ctx, contract)
+                for wav in narrations:
+                    _register_asset(db, project.id, run.id, wav, "audio", "narration", "audio/wav")
+
+                project_repo.update_status(project, "generating_music")
+                music = run_music_stage(ctx, contract)
+                _register_asset(db, project.id, run.id, music, "audio", "score", "audio/wav")
+
+            if output_type == "video" and keyframes and narrations and music:
+                project_repo.update_status(project, "assembling")
+                srt = run_subtitles_stage(ctx, contract)
+                for ratio in ctx.aspect_ratios:
+                    w, h = ASPECT_DIMENSIONS.get(ratio, (1280, 720))
+                    clips = run_shots_stage(ctx, contract, keyframes, width=w, height=h)
+                    final_mp4 = run_assembly_stage(ctx, contract, clips, narrations, music, srt, ratio)
+                    _register_asset(db, project.id, run.id, final_mp4, "video", f"final_{ratio}", "video/mp4", w, h)
+
+            project_repo.update_status(project, "done")
+            output_data = {"output_type": output_type, "shots": len(contract.shots)}
 
         run_repo.mark_completed(run, status="succeeded", output_data=output_data)
     except Exception as exc:

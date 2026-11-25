@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { AssetResponse, AspectRatio, inferAssetRatio } from "../types";
 import { getAssetDownloadUrl, getAssetStreamUrl } from "../services/media-service";
-import { IconDownload, IconMonitor, IconSmartphone, IconTrash } from "@/components/ui/Icon";
+import {
+  IconDownload,
+  IconMic,
+  IconMonitor,
+  IconMusic,
+  IconSmartphone,
+  IconTrash,
+} from "@/components/ui/Icon";
 
 interface Props {
   asset: AssetResponse;
@@ -40,9 +47,11 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
 
   const isVideo = asset.asset_type === "video";
   const isImage = asset.asset_type === "image";
+  const isAudio = asset.asset_type === "audio";
   const assetRatio = inferAssetRatio(asset);
   const isVerticalInHorizontal = assetRatio === "9:16" && ratio === "16:9";
   const mediaUrl = getAssetStreamUrl(asset.object_key);
+  const AudioIcon = asset.role === "score" ? IconMusic : IconMic;
 
   async function handleDelete() {
     if (!onDelete || deleting) return;
@@ -61,12 +70,17 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
         position: "relative",
         width: "100%",
         aspectRatio: ratio === "9:16" ? "9 / 16" : "16 / 9",
-        background: isVerticalInHorizontal ? "#1B060B" : "var(--surface-2)",
+        background: isAudio
+          ? "linear-gradient(135deg, var(--crimson-deep) 0%, #3A0712 100%)"
+          : isVerticalInHorizontal
+            ? "#1B060B"
+            : "var(--surface-2)",
         overflow: "hidden",
       }}>
-        {!loaded && (
+        {!loaded && !isAudio && (
           <div className="skeleton-box" style={{ position: "absolute", inset: 0 }} />
         )}
+
         {isVideo && visible && (
           <video
             src={mediaUrl}
@@ -83,6 +97,7 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
             }}
           />
         )}
+
         {isImage && visible && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -90,14 +105,53 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
             alt="Generated keyframe"
             decoding="async"
             onLoad={() => setLoaded(true)}
+            className={loaded ? "film-thumb-img" : undefined}
             style={{
               width: "100%",
               height: "100%",
               objectFit: isVerticalInHorizontal ? "contain" : "cover",
               opacity: loaded ? 1 : 0,
-              transition: "opacity 0.35s ease",
+              transition: "opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           />
+        )}
+
+        {isAudio && (
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.75rem",
+            padding: "1rem",
+            color: "#fff",
+          }}>
+            <span style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.16)",
+              border: "1px solid rgba(255,255,255,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <AudioIcon size={20} />
+            </span>
+            <span style={{ fontSize: "0.75rem", opacity: 0.85, textTransform: "capitalize" }}>
+              {asset.role.replace("_", " ")}
+            </span>
+            {visible && (
+              <audio
+                controls
+                preload="none"
+                src={mediaUrl}
+                style={{ width: "100%", maxWidth: 260, height: 34 }}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -114,46 +168,43 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
         </span>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-          {(isVideo || isImage) && (
-            <>
-              {([["16:9", IconMonitor], ["9:16", IconSmartphone]] as const).map(([r, Icon]) => {
-                const active = ratio === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRatio(r)}
-                    aria-label={`Aspect ratio ${r}`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.25rem",
-                      fontSize: "0.7rem",
-                      padding: "0.2rem 0.45rem",
-                      border: `1px solid ${active ? "var(--crimson)" : "var(--border)"}`,
-                      borderRadius: "var(--radius-sm)",
-                      background: active ? "var(--crimson)" : "var(--white)",
-                      color: active ? "#fff" : "var(--text-2)",
-                      fontWeight: 600,
-                      transition: "all var(--transition)",
-                    }}
-                  >
-                    <Icon size={11} />
-                    {r}
-                  </button>
-                );
-              })}
-            </>
-          )}
+          {([["16:9", IconMonitor], ["9:16", IconSmartphone]] as const).map(([r, Icon]) => {
+            const active = ratio === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRatio(r)}
+                aria-label={`Aspect ratio ${r}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontSize: "0.7rem",
+                  padding: "0.2rem 0.45rem",
+                  border: `1px solid ${active ? "var(--crimson)" : "var(--border)"}`,
+                  borderRadius: "var(--radius-sm)",
+                  background: active ? "var(--crimson)" : "var(--white)",
+                  color: active ? "#fff" : "var(--text-2)",
+                  fontWeight: 600,
+                  transition: "all var(--transition)",
+                }}
+              >
+                <Icon size={11} />
+                {r}
+              </button>
+            );
+          })}
 
           <a
             href={getAssetDownloadUrl(asset.id)}
             download
+            title="Download"
             aria-label="Download asset"
             className="btn btn-outline"
-            style={{ padding: "0.22rem 0.45rem", fontSize: "0.7rem" }}
+            style={{ padding: "0.24rem 0.45rem", fontSize: "0.7rem" }}
           >
-            <IconDownload size={12} />
+            <IconDownload size={13} />
           </a>
 
           {onDelete && (
@@ -161,11 +212,12 @@ export function VideoCard({ asset, defaultRatio = "16:9", onDelete }: Props) {
               type="button"
               onClick={handleDelete}
               disabled={deleting}
+              title="Remove"
               aria-label="Remove asset"
               className="btn btn-ghost"
-              style={{ padding: "0.22rem 0.4rem" }}
+              style={{ padding: "0.24rem 0.4rem" }}
             >
-              <IconTrash size={12} />
+              <IconTrash size={13} />
             </button>
           )}
         </div>

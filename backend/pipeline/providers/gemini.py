@@ -108,12 +108,23 @@ def _extract_text(data: dict[str, Any]) -> str:
     return "".join(part.get("text", "") for part in parts).strip()
 
 
+LANGUAGE_NAMES: dict[str, str] = {
+    "am": "Amharic (አማርኛ)",
+    "en": "English",
+    "om": "Afaan Oromo",
+    "ti": "Tigrinya (ትግርኛ)",
+    "so": "Somali",
+    "fr": "French",
+}
+
+
 def generate_script(topic: str, source_text: str, language_code: str) -> str:
     settings = get_settings()
+    lang_name = LANGUAGE_NAMES.get(language_code, language_code)
     prompt = (
         f"Write a concise 60-90 second documentary narration script (140-200 words) "
-        f"in language '{language_code}' about: {topic}.\n"
-        f"Keep sentences short, vivid, and natural for spoken narration.\n\n"
+        f"strictly in {lang_name} about: {topic}.\n"
+        f"Keep sentences short, vivid, culturally authentic, and natural for spoken narration.\n\n"
         f"Source notes:\n{source_text[:4000]}"
     )
     log_params = {"language": language_code, "topic": topic[:80]}
@@ -134,12 +145,15 @@ def generate_script(topic: str, source_text: str, language_code: str) -> str:
 def generate_storyboard(
     script_text: str,
     language_code: str,
-    num_shots: int = 10,
+    num_shots: int = 8,
 ) -> dict[str, Any]:
     settings = get_settings()
+    lang_name = LANGUAGE_NAMES.get(language_code, language_code)
     prompt = (
         f"Convert this narration script into a JSON storyboard with exactly {num_shots} shots "
         f"(total duration 60-90 seconds, each shot 4-10 seconds).\n"
+        f"narration_text MUST be written in {lang_name}; narration_en MUST be a clear English translation; "
+        f"image_prompt and motion_prompt MUST be in English.\n"
         f"Return valid JSON matching keys: logline, audience, intent, language ('{language_code}'), "
         f"music_style, style_block, end_card_text, and shots (array of objects with index, description, "
         f"image_prompt, motion_prompt, narration_text, narration_en, duration_s, music_cue, reason).\n"

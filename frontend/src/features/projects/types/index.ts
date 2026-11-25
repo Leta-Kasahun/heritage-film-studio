@@ -10,9 +10,12 @@ export type ProjectStatus =
   | "done"
   | "error";
 
+export type OutputType = "video" | "audio" | "image";
+
 export interface ProjectSettings {
   target_duration_seconds?: number;
   aspect_ratios?: string[];
+  output_type?: OutputType;
   visual_style?: string;
   subtitle_language?: string;
 }
@@ -23,6 +26,7 @@ export interface ProjectListItem {
   heritage_topic: string;
   language_code: string;
   status: ProjectStatus;
+  settings?: ProjectSettings;
   created_at: string;
   updated_at: string;
 }

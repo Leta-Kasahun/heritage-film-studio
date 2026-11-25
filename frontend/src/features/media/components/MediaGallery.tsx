@@ -13,7 +13,9 @@ interface Props {
 export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
   const { items, loading, hasMore, sentinelRef, removeAsset } = useAssets(projectId);
 
-  const media = items.filter((a) => a.asset_type === "image" || a.asset_type === "video");
+  const media = items.filter(
+    (a) => a.asset_type === "image" || a.asset_type === "video" || a.asset_type === "audio"
+  );
 
   if (!loading && media.length === 0) {
     return (
@@ -32,7 +34,7 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
           <IconFilm size={20} />
         </div>
         <p style={{ color: "var(--text-2)", fontSize: "0.9rem" }}>
-          No media generated yet — run keyframes or video stages first.
+          No media generated yet — run keyframes, narration, or video stages first.
         </p>
       </div>
     );
@@ -42,8 +44,11 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
     <div>
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))",
-        gap: "1rem",
+        gridTemplateColumns:
+          defaultRatio === "9:16"
+            ? "repeat(auto-fill, minmax(210px, 1fr))"
+            : "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: "1.15rem",
         alignItems: "start",
       }}>
         {media.map((asset) => (

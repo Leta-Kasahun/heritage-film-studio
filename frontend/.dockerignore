@@ -1,7 +1,9 @@
 node_modules
 .next
 out
-.env.local
 .env
+.env.*
 npm-debug.log*
 .pnpm-debug.log*
+.git
+*.md

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/layout/Navbar";
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body style={{ background: "var(--white)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <Providers>
-          <Navbar />
+          <Suspense fallback={<div style={{ height: 56, background: "var(--crimson-deep)" }} />}>
+            <Navbar />
+          </Suspense>
           <main style={{ flex: 1, width: "100%" }}>{children}</main>
           <Footer />
         </Providers>

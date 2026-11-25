@@ -10,8 +10,26 @@ export function useProjects() {
   return useQuery({ queryKey: ["projects"], queryFn: listProjects });
 }
 
+const ACTIVE = new Set([
+  "uploaded",
+  "generating_script",
+  "generating_storyboard",
+  "generating_keyframes",
+  "generating_narration",
+  "generating_music",
+  "assembling",
+]);
+
 export function useProject(id: string) {
-  return useQuery({ queryKey: ["project", id], queryFn: () => getProject(id), enabled: !!id });
+  return useQuery({
+    queryKey: ["project", id],
+    queryFn: () => getProject(id),
+    enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ACTIVE.has(status) ? 3000 : false;
+    },
+  });
 }
 
 export function useCreateProject() {

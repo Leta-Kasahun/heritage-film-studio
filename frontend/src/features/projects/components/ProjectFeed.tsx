@@ -2,28 +2,26 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useProjects } from "@/features/projects/hooks/useProjects";
-import { ProjectListItem, ProjectStatus } from "@/features/projects/types";
+import { useProjects, useDeleteProject } from "@/features/projects/hooks/useProjects";
+import { ProjectListItem } from "@/features/projects/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ROUTES } from "@/constants/routes";
 import { formatDate } from "@/utils/format";
 import { AspectRatio } from "@/features/media/types";
-import sampleFilms from "@/features/projects/data/sample-films.json";
 import {
   IconPlay,
   IconCalendar,
   IconArrowRight,
+  IconDownload,
   IconFilm,
-  IconMonitor,
-  IconSmartphone,
+  IconImage,
+  IconLoader,
+  IconMic,
+  IconPlus,
+  IconTrash,
 } from "@/components/ui/Icon";
 
-type FeedItem = ProjectListItem & {
-  aspect_ratio?: AspectRatio;
-  thumbnail_url?: string;
-};
-
-type RatioFilter = "all" | AspectRatio;
+type MediaFilter = "all" | "video" | "audio" | "image";
 
 interface Props {
   title?: string;
@@ -31,142 +29,10 @@ interface Props {
   pageSize?: number;
 }
 
-function LazyThumb({
-  src,
-  alt,
-  itemRatio,
-  frameRatio,
-}: {
-  src?: string;
-  alt: string;
-  itemRatio: AspectRatio;
-  frameRatio: AspectRatio;
-}) {
-  const [inView, setInView] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const isVerticalInHorizontalFrame = itemRatio === "9:16" && frameRatio === "16:9";
-
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setInView(true);
-          obs.disconnect();
-        }
-      },
-      { rootMargin: "160px" }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (inView && imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
-      setLoaded(true);
-    }
-  }, [inView]);
-
-  return (
-    <div
-      ref={boxRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        aspectRatio: frameRatio === "9:16" ? "9 / 16" : "16 / 9",
-        background: isVerticalInHorizontalFrame ? "#1B060B" : "var(--surface-2)",
-        overflow: "hidden",
-      }}
-    >
-      {!loaded && (
-        <div
-          className="skeleton-box"
-          style={{ position: "absolute", inset: 0 }}
-        />
-      )}
-
-      {inView && src && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          decoding="async"
-          onLoad={() => setLoaded(true)}
-          className={loaded ? "film-thumb-img" : undefined}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: isVerticalInHorizontalFrame ? "contain" : "cover",
-            opacity: loaded ? 1 : 0,
-            transform: loaded ? undefined : "scale(1.02)",
-            transition: "opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        />
-      )}
-
-      <span
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 8,
-          fontSize: "0.65rem",
-          fontWeight: 600,
-          letterSpacing: "0.03em",
-          padding: "0.15rem 0.45rem",
-          borderRadius: "var(--radius-sm)",
-          background: "rgba(15,15,15,0.68)",
-          color: "#fff",
-        }}
-      >
-        {itemRatio}
-      </span>
-
-      <span
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(0,0,0,0.14)",
-        }}
-      >
-        <span
-          className="film-play-btn"
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.22)",
-            backdropFilter: "blur(4px)",
-            border: "1.5px solid rgba(255,255,255,0.82)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <IconPlay size={17} style={{ marginLeft: 2 }} />
-        </span>
-      </span>
-    </div>
-  );
-}
-
-function SkeletonCard({ frameRatio }: { frameRatio: AspectRatio }) {
+function SkeletonCard() {
   return (
     <div className="card" style={{ overflow: "hidden" }}>
-      <div
-        className="skeleton-box"
-        style={{
-          width: "100%",
-          aspectRatio: frameRatio === "9:16" ? "9 / 16" : "16 / 9",
-        }}
-      />
+      <div className="skeleton-box" style={{ width: "100%", aspectRatio: "16 / 9" }} />
       <div style={{ padding: "0.95rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         <div className="skeleton-box" style={{ height: 16, width: "70%", borderRadius: 4 }} />
         <div className="skeleton-box" style={{ height: 12, width: "90%", borderRadius: 4 }} />
@@ -180,20 +46,16 @@ export function ProjectFeed({
   searchQuery = "",
   pageSize = 6,
 }: Props) {
-  const { data: projects } = useProjects();
-  const [ratioFilter, setRatioFilter] = useState<RatioFilter>("all");
+  const { data: projects, isLoading, error } = useProjects();
+  const deleteProject = useDeleteProject();
+  const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const source: FeedItem[] =
-    projects && projects.length > 0
-      ? projects
-      : (sampleFilms as (Omit<FeedItem, "status"> & { status: ProjectStatus })[]);
-
-  const filtered = source.filter((p) => {
-    const itemRatio = p.aspect_ratio ?? "16:9";
-    if (ratioFilter !== "all" && itemRatio !== ratioFilter) return false;
+  const filtered = (projects ?? []).filter((p: ProjectListItem) => {
+    const itemType = p.settings?.output_type ?? "video";
+    if (mediaFilter !== "all" && itemType !== mediaFilter) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -202,13 +64,17 @@ export function ProjectFeed({
     );
   });
 
+  function handleRemove(p: ProjectListItem) {
+    if (!confirm(`Remove "${p.title}"?`)) return;
+    deleteProject.mutate(p.id);
+  }
+
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visible.length < filtered.length;
-  const frameRatio: AspectRatio = ratioFilter === "9:16" ? "9:16" : "16:9";
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [searchQuery, ratioFilter, pageSize]);
+  }, [searchQuery, mediaFilter, pageSize]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -260,16 +126,17 @@ export function ProjectFeed({
           {(
             [
               ["all", IconFilm, "All"],
-              ["16:9", IconMonitor, "Horizontal"],
-              ["9:16", IconSmartphone, "Vertical"],
+              ["video", IconPlay, "Videos"],
+              ["audio", IconMic, "Audio"],
+              ["image", IconImage, "Images"],
             ] as const
           ).map(([value, Icon, label]) => {
-            const active = ratioFilter === value;
+            const active = mediaFilter === value;
             return (
               <button
                 key={value}
                 type="button"
-                onClick={() => setRatioFilter(value)}
+                onClick={() => setMediaFilter(value)}
                 className={active ? "btn btn-primary" : "btn btn-outline"}
                 style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
               >
@@ -281,27 +148,64 @@ export function ProjectFeed({
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>
-          <p style={{ color: "var(--text-2)", fontSize: "0.9rem" }}>
-            No matching films found.
-          </p>
+      {isLoading && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
         </div>
-      ) : (
+      )}
+
+      {error && (
+        <div className="card" style={{ padding: "1.5rem", textAlign: "center", color: "var(--text-2)", fontSize: "0.875rem" }}>
+          Unable to load projects right now. Please ensure the backend server is running.
+        </div>
+      )}
+
+      {!isLoading && !error && visible.length === 0 && (
+        <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>
+          <div style={{
+            width: 44,
+            height: 44,
+            borderRadius: "var(--radius-md)",
+            background: "var(--crimson-pale)",
+            color: "var(--crimson)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: "0.9rem",
+          }}>
+            <IconFilm size={20} />
+          </div>
+          <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", marginBottom: "0.35rem" }}>
+            {searchQuery ? "No matching projects" : "No projects yet"}
+          </h3>
+          <p style={{ color: "var(--text-3)", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
+            {searchQuery
+              ? `No projects matched "${searchQuery}".`
+              : "Create your first heritage film, audio, or image collection."}
+          </p>
+          {!searchQuery && (
+            <Link href={ROUTES.newProject} className="btn btn-primary">
+              <IconPlus size={15} />
+              Create New Project
+            </Link>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !error && visible.length > 0 && (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns:
-              frameRatio === "9:16"
-                ? "repeat(auto-fill, minmax(210px, 1fr))"
-                : "repeat(auto-fill, minmax(290px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: "1.25rem",
           }}
         >
           {visible.map((p) => {
-            const itemRatio = p.aspect_ratio ?? "16:9";
-            const isSample = p.id.startsWith("sample-");
-            const href = isSample ? ROUTES.newProject : ROUTES.project(p.id);
+            const outputType = p.settings?.output_type ?? "video";
+            const ratio = (p.settings?.aspect_ratios?.[0] as AspectRatio) ?? "16:9";
+            const Icon = outputType === "audio" ? IconMic : outputType === "image" ? IconImage : IconPlay;
 
             return (
               <article
@@ -313,18 +217,65 @@ export function ProjectFeed({
                   animation: "fadeIn 0.3s ease both",
                 }}
               >
-                <Link href={isSample ? ROUTES.newProject : ROUTES.preview(p.id)}>
-                  <LazyThumb
-                    src={p.thumbnail_url}
-                    alt={p.title}
-                    itemRatio={itemRatio}
-                    frameRatio={frameRatio}
-                  />
+                <Link
+                  href={ROUTES.preview(p.id)}
+                  style={{
+                    display: "block",
+                    position: "relative",
+                    width: "100%",
+                    aspectRatio: "16 / 9",
+                    background: "linear-gradient(135deg, var(--crimson-deep) 0%, #3A0712 100%)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      fontSize: "0.65rem",
+                      fontWeight: 600,
+                      padding: "0.15rem 0.45rem",
+                      borderRadius: "var(--radius-sm)",
+                      background: "rgba(15,15,15,0.68)",
+                      color: "#fff",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {outputType} · {ratio}
+                  </span>
+
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span
+                      className="film-play-btn"
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "50%",
+                        background: "rgba(255,255,255,0.2)",
+                        border: "1.5px solid rgba(255,255,255,0.78)",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Icon size={18} />
+                    </span>
+                  </span>
                 </Link>
 
                 <div style={{ padding: "0.95rem 1.1rem", flex: 1, display: "flex", flexDirection: "column" }}>
                   <Link
-                    href={href}
+                    href={ROUTES.project(p.id)}
                     style={{
                       fontFamily: "var(--font-serif)",
                       fontWeight: 700,
@@ -372,24 +323,47 @@ export function ProjectFeed({
                       <StatusBadge status={p.status} />
                     </div>
 
-                    <Link
-                      href={href}
-                      aria-label={`Open ${p.title}`}
-                      className="film-arrow-btn"
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        border: "1px solid var(--crimson)",
-                        color: "var(--crimson)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <IconArrowRight size={13} />
-                    </Link>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+                      <Link
+                        href={ROUTES.preview(p.id)}
+                        title="Open & Download"
+                        aria-label={`Download ${p.title}`}
+                        className="btn btn-outline"
+                        style={{ padding: "0.28rem 0.45rem" }}
+                      >
+                        <IconDownload size={13} />
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(p)}
+                        title="Remove"
+                        aria-label={`Remove ${p.title}`}
+                        className="btn btn-ghost"
+                        style={{ padding: "0.28rem 0.4rem" }}
+                      >
+                        <IconTrash size={13} />
+                      </button>
+
+                      <Link
+                        href={ROUTES.project(p.id)}
+                        aria-label={`Open ${p.title}`}
+                        className="film-arrow-btn"
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          border: "1px solid var(--crimson)",
+                          color: "var(--crimson)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <IconArrowRight size={13} />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -398,12 +372,18 @@ export function ProjectFeed({
 
           {loadingMore &&
             Array.from({ length: 3 }).map((_, idx) => (
-              <SkeletonCard key={`sk-${idx}`} frameRatio={frameRatio} />
+              <SkeletonCard key={`sk-${idx}`} />
             ))}
         </div>
       )}
 
       <div ref={sentinelRef} style={{ height: 1 }} />
+
+      {loadingMore && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "1.25rem 0", color: "var(--crimson)" }}>
+          <IconLoader size={18} />
+        </div>
+      )}
     </div>
   );
 }
