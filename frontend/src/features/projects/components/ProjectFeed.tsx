@@ -4,7 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteAsset, listAllAssets } from "@/features/media/services/media-service";
+import { useProjects } from "@/features/projects/hooks/useProjects";
+import { AssetResponse } from "@/features/media/types";
 import { VideoCard } from "@/features/media/components/VideoCard";
+import { ImageGalleryCard } from "@/features/media/components/ImageGalleryCard";
 import { ROUTES } from "@/constants/routes";
 import {
   IconPlay,
@@ -26,12 +29,14 @@ interface Props {
 export function ProjectFeed({
   title = "Generated Media",
   searchQuery = "",
-  pageSize = 9,
+  pageSize = 24,
 }: Props) {
   const qc = useQueryClient();
+  const { data: projects } = useProjects();
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  const projectTitleMap = new Map((projects ?? []).map((p) => [p.id, p.title]));
   const assetTypeParam = mediaFilter === "all" ? undefined : mediaFilter;
 
   const query = useInfiniteQuery({
@@ -42,18 +47,33 @@ export function ProjectFeed({
       lastPage.length < pageSize ? undefined : allPages.length + 1,
   });
 
-  const allItems = query.data?.pages.flat() ?? [];
-  const visible = allItems.filter((a) => {
+  const allItems = Array.from(
+    new Map((query.data?.pages.flat() ?? []).map((a) => [a.id, a])).values()
+  );
+
+  const filtered = allItems.filter((a) => {
     if (a.asset_type === "subtitle") return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
+    const projectName = (projectTitleMap.get(a.project_id) ?? "").toLowerCase();
     return (
+      projectName.includes(q) ||
       a.object_key.toLowerCase().includes(q) ||
       a.role.toLowerCase().includes(q) ||
       a.asset_type.toLowerCase().includes(q)
     );
   });
 
+  const videos = filtered.filter((a) => a.asset_type === "video");
+  const audios = filtered.filter((a) => a.asset_type === "audio");
+  const imagesByProject = new Map<string, AssetResponse[]>();
+  for (const img of filtered.filter((a) => a.asset_type === "image")) {
+    const group = imagesByProject.get(img.project_id) ?? [];
+    group.push(img);
+    imagesByProject.set(img.project_id, group);
+  }
+
+  const hasContent = videos.length > 0 || audios.length > 0 || imagesByProject.size > 0;
   const loading = query.isLoading || query.isFetchingNextPage;
   const hasMore = !!query.hasNextPage;
 
@@ -153,7 +173,7 @@ export function ProjectFeed({
         </div>
       )}
 
-      {!query.isLoading && !query.isError && visible.length === 0 && (
+      {!query.isLoading && !query.isError && !hasContent && (
         <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>
           <div style={{
             width: 44,
@@ -181,7 +201,7 @@ export function ProjectFeed({
         </div>
       )}
 
-      {!query.isLoading && !query.isError && visible.length > 0 && (
+      {!query.isLoading && !query.isError && hasContent && (
         <div
           style={{
             display: "grid",
@@ -189,7 +209,23 @@ export function ProjectFeed({
             gap: "1.25rem",
           }}
         >
-          {visible.map((asset) => (
+          {videos.map((asset) => (
+            <VideoCard
+              key={asset.id}
+              asset={asset}
+              onDelete={handleRemove}
+            />
+          ))}
+
+          {Array.from(imagesByProject.entries()).map(([projectId, imgs]) => (
+            <ImageGalleryCard
+              key={`gallery-${projectId}`}
+              images={imgs}
+              title={projectTitleMap.get(projectId) ?? "Narration Gallery"}
+            />
+          ))}
+
+          {audios.map((asset) => (
             <VideoCard
               key={asset.id}
               asset={asset}

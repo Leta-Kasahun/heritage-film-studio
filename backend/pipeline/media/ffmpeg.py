@@ -1,10 +1,41 @@
+import shutil
 import subprocess
 from pathlib import Path
+from app.core.config import get_settings
+
+
+def _map_docker_arg(arg: str, storage_dir: Path) -> str:
+    prefix = str(storage_dir)
+    posix_prefix = storage_dir.as_posix()
+    if prefix in arg:
+        return arg.replace(prefix, "/storage").replace("\\", "/")
+    if posix_prefix in arg:
+        return arg.replace(posix_prefix, "/storage")
+    if not arg.startswith("-") and ("\\" in arg or "/" in arg) and ":" not in arg:
+        resolved = Path(arg).resolve()
+        if resolved.is_relative_to(storage_dir):
+            return "/storage/" + resolved.relative_to(storage_dir).as_posix()
+    return arg
 
 
 def _run_ffmpeg(args: list[str]) -> None:
-    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *args]
-    subprocess.run(cmd, check=True)
+    if shutil.which("ffmpeg"):
+        cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *args]
+        subprocess.run(cmd, check=True)
+        return
+    if shutil.which("docker"):
+        storage_dir = get_settings().STORAGE_DIR.resolve()
+        mapped = [_map_docker_arg(a, storage_dir) for a in args]
+        cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{storage_dir}:/storage",
+            "mwader/static-ffmpeg:7.1",
+            "-y", "-hide_banner", "-loglevel", "error",
+            *mapped,
+        ]
+        subprocess.run(cmd, check=True)
+        return
+    raise RuntimeError("Neither ffmpeg nor docker is available on PATH")
 
 
 def ken_burns_clip(
@@ -65,11 +96,13 @@ def render_end_card(
 
 def concat_media(paths: list[Path], out_path: Path, has_audio: bool = False) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    storage_dir = get_settings().STORAGE_DIR.resolve()
     list_file = out_path.with_suffix(".txt")
-    list_file.write_text(
-        "\n".join(f"file '{p.resolve().as_posix()}'" for p in paths),
-        encoding="utf-8",
-    )
+    lines = []
+    for p in paths:
+        mapped = _map_docker_arg(str(p.resolve()), storage_dir)
+        lines.append(f"file '{mapped}'")
+    list_file.write_text("\n".join(lines), encoding="utf-8")
     args = ["-f", "concat", "-safe", "0", "-i", str(list_file), "-c", "copy", str(out_path)]
     if has_audio:
         args = ["-f", "concat", "-safe", "0", "-i", str(list_file), "-c:v", "libx264", "-c:a", "aac", str(out_path)]
@@ -97,14 +130,15 @@ def assemble_film(
     concat_media(clip_paths, merged_video)
     concat_media(narration_paths, merged_voice)
 
-    srt_escaped = srt_path.resolve().as_posix().replace(":", "\\:")
+    storage_dir = get_settings().STORAGE_DIR.resolve()
+    srt_mapped = _map_docker_arg(srt_path.resolve().as_posix(), storage_dir).replace(":", "\\:")
     filter_complex = (
         "[2:a]aloop=loop=-1:size=2e+09[music];"
         "[music][1:a]sidechaincompress=threshold=0.02:ratio=6:attack=300:release=1500[ducked];"
         "[1:a][ducked]amix=inputs=2:duration=first,loudnorm=I=-14:TP=-1:LRA=11[aout];"
         f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
-        f"subtitles='{srt_escaped}':force_style='FontSize=20,MarginV=36'[vout]"
+        f"subtitles='{srt_mapped}':force_style='FontSize=20,MarginV=36'[vout]"
     )
     _run_ffmpeg([
         "-i", str(merged_video),

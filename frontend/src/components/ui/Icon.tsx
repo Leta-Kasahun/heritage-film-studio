@@ -4,6 +4,7 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clapperboard,
   Clock,
@@ -36,6 +37,7 @@ export function IconSearch(p: LucideProps) { return <Search strokeWidth={1.75} a
 export function IconCalendar(p: LucideProps) { return <Calendar strokeWidth={1.75} aria-hidden="true" {...p} />; }
 export function IconPlus(p: LucideProps) { return <Plus strokeWidth={1.75} aria-hidden="true" {...p} />; }
 export function IconArrowRight(p: LucideProps) { return <ArrowRight strokeWidth={1.75} aria-hidden="true" {...p} />; }
+export function IconChevronLeft(p: LucideProps) { return <ChevronLeft strokeWidth={1.75} aria-hidden="true" {...p} />; }
 export function IconChevronRight(p: LucideProps) { return <ChevronRight strokeWidth={1.75} aria-hidden="true" {...p} />; }
 export function IconChevronDown(p: LucideProps) { return <ChevronDown strokeWidth={1.75} aria-hidden="true" {...p} />; }
 export function IconTrash(p: LucideProps) { return <Trash2 strokeWidth={1.75} aria-hidden="true" {...p} />; }

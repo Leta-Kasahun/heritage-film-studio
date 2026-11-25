@@ -17,7 +17,9 @@ export function useAssets(projectId: string, pageSize = 12) {
     enabled: !!projectId,
   });
 
-  const items = query.data?.pages.flat() ?? [];
+  const items = Array.from(
+    new Map((query.data?.pages.flat() ?? []).map((a) => [a.id, a])).values()
+  );
   const loading = query.isLoading || query.isFetchingNextPage;
   const hasMore = !!query.hasNextPage;
 

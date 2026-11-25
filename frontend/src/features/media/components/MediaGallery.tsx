@@ -2,6 +2,7 @@
 
 import { useAssets } from "../hooks/useAssets";
 import { VideoCard } from "./VideoCard";
+import { ImageGalleryCard } from "./ImageGalleryCard";
 import { AspectRatio } from "../types";
 import { IconFilm, IconLoader } from "@/components/ui/Icon";
 
@@ -11,13 +12,14 @@ interface Props {
 }
 
 export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
-  const { items, loading, hasMore, sentinelRef, removeAsset } = useAssets(projectId);
+  const { items, loading, hasMore, sentinelRef, removeAsset } = useAssets(projectId, 50);
 
-  const media = items.filter(
-    (a) => a.asset_type === "image" || a.asset_type === "video" || a.asset_type === "audio"
-  );
+  const videos = items.filter((a) => a.asset_type === "video");
+  const audios = items.filter((a) => a.asset_type === "audio");
+  const images = items.filter((a) => a.asset_type === "image");
+  const totalCount = videos.length + audios.length + images.length;
 
-  if (loading && media.length === 0) {
+  if (loading && totalCount === 0) {
     return (
       <div style={{
         display: "grid",
@@ -27,7 +29,7 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
             : "repeat(auto-fill, minmax(280px, 1fr))",
         gap: "1.15rem",
       }}>
-        {Array.from({ length: 6 }).map((_, idx) => (
+        {Array.from({ length: 3 }).map((_, idx) => (
           <div key={idx} className="card" style={{ overflow: "hidden" }}>
             <div className="skeleton-box" style={{ width: "100%", aspectRatio: defaultRatio === "9:16" ? "9 / 16" : "16 / 9" }} />
             <div style={{ padding: "0.75rem 0.9rem" }}>
@@ -39,7 +41,7 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
     );
   }
 
-  if (!loading && media.length === 0) {
+  if (!loading && totalCount === 0) {
     return (
       <div className="card" style={{ textAlign: "center", padding: "3.5rem 1.5rem" }}>
         <div style={{
@@ -56,7 +58,7 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
           <IconFilm size={20} />
         </div>
         <p style={{ color: "var(--text-2)", fontSize: "0.9rem" }}>
-          No media generated yet — run keyframes, narration, or video stages first.
+          No media generated yet.
         </p>
       </div>
     );
@@ -73,7 +75,24 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
         gap: "1.15rem",
         alignItems: "start",
       }}>
-        {media.map((asset) => (
+        {videos.map((asset) => (
+          <VideoCard
+            key={asset.id}
+            asset={asset}
+            defaultRatio={defaultRatio}
+            onDelete={removeAsset}
+          />
+        ))}
+
+        {images.length > 0 && (
+          <ImageGalleryCard
+            images={images}
+            title="Narration Frames Gallery"
+            defaultRatio={defaultRatio}
+          />
+        )}
+
+        {audios.map((asset) => (
           <VideoCard
             key={asset.id}
             asset={asset}
@@ -100,7 +119,7 @@ export function MediaGallery({ projectId, defaultRatio = "16:9" }: Props) {
         </div>
       )}
 
-      {!hasMore && media.length > 0 && (
+      {!hasMore && totalCount > 0 && (
         <p style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-3)", fontSize: "0.78rem" }}>
           All media loaded
         </p>
