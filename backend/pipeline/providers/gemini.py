@@ -70,7 +70,7 @@ def _post_groq(prompt: str, stage: str, log_params: dict[str, Any], json_mode: b
         "model": settings.GROQ_MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
-        "max_tokens": 2048,
+        "max_tokens": 4096,
         "reasoning_effort": "low",
     }
     if json_mode:

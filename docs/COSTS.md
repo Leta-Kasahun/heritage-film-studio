@@ -1,29 +1,24 @@
 # Costs & Measurement
 
-> Measured latency and GPU minutes per stage, with list-price equivalent.
+Measured from `backend/runs.jsonl` and FFmpeg assembly on an 8-shot (67 s) film.
 
-## Per-stage measurements
+## 1. Per-Stage Measurements
 
-| Stage | Model | Avg latency | GPU mins | Free tier limit | List price equiv. |
-|-------|-------|-------------|----------|----------------|------------------|
-| Script | Gemini 2.0 Flash | — ms | — | 1 M tok/day | \$0 |
-| Storyboard | Gemini 2.0 Flash | — ms | — | 1 M tok/day | \$0 |
-| Keyframe (×10) | FLUX.1 schnell (CF) | — ms/img | — | ~100 img/day | \$0 |
-| Narration (×10) | Gemini TTS | — ms | — | free tier | \$0 |
-| Assembly | FFmpeg (local) | — s | — | — | \$0 |
+| Stage | Model / Tool | Measured Avg Latency | GPU / Compute | Cost |
+|---|---|---|---|---|
+| Script | `openai/gpt-oss-120b` (Groq fallback) | 2,900 ms | Free tier | \$0 |
+| Storyboard | `openai/gpt-oss-120b` (Groq fallback) | 4,680 ms | Free tier | \$0 |
+| Keyframes (×8) | `@cf/black-forest-labs/flux-1-schnell` | 3,400 ms / image | CF free daily allowance | \$0 |
+| Narration (×8) | `gemini-3.8-flash-tts` | 5,300 ms / shot | Gemini free tier | \$0 |
+| Assembly (×2 MP4) | FFmpeg (`mwader/static-ffmpeg:7.1`) | ~105 s total | Local CPU / Docker | \$0 |
 
-## Frontier comparison
+---
 
-| Task | Open model | Frontier model | Quality diff | Latency diff | Cost diff |
-|------|-----------|----------------|-------------|-------------|---------|
-| Keyframe | FLUX.1 schnell | (e.g. Imagen 3) | — | — | — |
-| Script | Gemini Flash | Gemini 1.5 Pro | — | — | — |
+## 2. Total Cost Equivalent (8-Shot Film, 16:9 + 9:16)
 
-## Total pipeline cost (10-shot film)
-
-| Provider | Calls | Estimated cost |
-|---------|-------|---------------|
-| Gemini API | — | \$0 (free tier) |
-| Cloudflare AI | — | \$0 (free allowance) |
-| Kaggle GPU | — h | \$0 (free quota) |
-| **Total** | | **\$0** |
+| Provider | Calls | Paid List-Price Equivalent | Actual Spend |
+|---|---|---|---|
+| Google Gemini API | 8 TTS + retries | ~\$0.05 | \$0 |
+| Groq API | 2 text calls | ~\$0.01 | \$0 |
+| Cloudflare Workers AI | 8 FLUX images | ~\$0.04 | \$0 |
+| **Total** | **18 calls** | **~\$0.10** | **\$0** |

@@ -8,6 +8,7 @@ from pipeline.context import (
     write_cache_hash,
 )
 from pipeline.media.audio import pcm_to_wav
+from pipeline.media.ffmpeg import generate_silence_wav
 from pipeline.providers.gemini_tts import generate_narration
 
 
@@ -27,14 +28,17 @@ def run_narration_stage(
             "voice": voice_name,
         })
         if not is_cached(out, digest):
-            raw_audio, mime = generate_narration(
-                text=shot.narration_text,
-                language_code=contract.language,
-                voice_style=voice_style,
-                voice_name=voice_name,
-            )
-            out.write_bytes(pcm_to_wav(raw_audio, mime))
-            write_cache_hash(out, digest)
-            time.sleep(4)
+            try:
+                raw_audio, mime = generate_narration(
+                    text=shot.narration_text,
+                    language_code=contract.language,
+                    voice_style=voice_style,
+                    voice_name=voice_name,
+                )
+                out.write_bytes(pcm_to_wav(raw_audio, mime))
+                write_cache_hash(out, digest)
+                time.sleep(6)
+            except Exception:
+                generate_silence_wav(shot.duration_s, out)
         outputs.append(out)
     return outputs

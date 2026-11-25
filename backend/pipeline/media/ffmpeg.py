@@ -70,6 +70,16 @@ def generate_ambient_score(duration_s: int, out_path: Path) -> Path:
     return out_path
 
 
+def generate_silence_wav(duration_s: int, out_path: Path) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _run_ffmpeg([
+        "-f", "lavfi",
+        "-i", f"anullsrc=channel_layout=mono:sample_rate=24000:d={duration_s}",
+        str(out_path),
+    ])
+    return out_path
+
+
 def render_end_card(
     text: str,
     out_path: Path,
@@ -137,7 +147,7 @@ def assemble_film(
         "[music][1:a]sidechaincompress=threshold=0.02:ratio=6:attack=300:release=1500[ducked];"
         "[1:a][ducked]amix=inputs=2:duration=first,loudnorm=I=-14:TP=-1:LRA=11[aout];"
         f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,"
         f"subtitles='{srt_mapped}':force_style='FontSize=20,MarginV=36'[vout]"
     )
     _run_ffmpeg([
@@ -149,6 +159,8 @@ def assemble_film(
         "-map", "[aout]",
         "-c:v", "libx264",
         "-c:a", "aac",
+        "-ar", "48000",
+        "-ac", "2",
         "-shortest",
         str(mixed_main),
     ])

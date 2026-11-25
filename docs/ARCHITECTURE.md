@@ -1,94 +1,100 @@
-# Architecture
+# System Architecture
 
-## Overview
+## 1. High-Level System Diagram
 
-The application follows a strict **5-stage linear pipeline** where `storyboard.json` is the single contract that every stage reads from and writes to.
-
-```
-storyboard.json (contract)
-        │
-        ├── Stage 1 ── Script + Storyboard (Gemini Flash)
-        ├── Stage 2 ── Keyframe Images     (Cloudflare FLUX)
-        ├── Stage 3 ── Narration Audio     (Gemini TTS)
-        ├── Stage 4 ── Music Score         (ACE-Step, Kaggle)
-        └── Stage 5 ── Assembly            (FFmpeg)
-```
-
-## Backend (FastAPI)
-
-### SOLID principles applied
-
-| Principle | How |
-|-----------|-----|
-| **S** ingle Responsibility | Each service module does one thing: `gemini_service.py` → Gemini calls only, `cloudflare_service.py` → CF calls only, `document_parser.py` → text extraction only |
-| **O** pen/Closed | New AI providers add a new `*_service.py` without touching existing code |
-| **L** iskov | All service functions return plain Python types (str, Path, dict) — easy to swap implementations |
-| **I** nterface Segregation | Pydantic schemas separated from ORM models; each route only imports what it needs |
-| **D** ependency Inversion | Routes depend on `project_service` (business layer), not on AI providers directly |
-
-### Layers
-
-```
-Routes (api/routes/)
-   │  — HTTP contract, request validation, BackgroundTasks dispatch
-   ▼
-Services (services/project_service.py)
-   │  — Pipeline orchestration, DB state, caching logic
-   ▼
-AI Services (services/gemini_service.py, cloudflare_service.py)
-   │  — Single-purpose provider wrappers, logging every call
-   ▼
-DB (db/models.py + database.py)
-   └  — SQLite via SQLAlchemy ORM
+```mermaid
+flowchart LR
+  User["Browser / CLI"] --> Next["Next.js 16 Studio"]
+  Next -->|"REST JSON + Multipart"| API["FastAPI Backend"]
+  API --> DB[("PostgreSQL (4 tables)")]
+  API -->|"BackgroundTasks"| Runner["Pipeline Runner"]
+  Runner -->|"Reads & Validates"| Contract["storyboard.json + JSON Schema"]
+  Runner -->|"Script / Storyboard"| TextAI["Gemini 3.8 Flash / Groq"]
+  Runner -->|"Narration"| TTS["Gemini 3.8 Flash TTS"]
+  Runner -->|"Keyframes"| ImgAI["Cloudflare FLUX"]
+  Runner -->|"Clips & Final Mix"| FFmpeg["FFmpeg (Static / Docker)"]
+  Runner -->|"Writes Media"| Storage[("storage/")]
+  Runner -->|"Appends Metrics"| Logs[("backend/runs.jsonl")]
 ```
 
-### Caching Strategy
+---
 
-Each stage checks whether the output file already exists before calling the AI provider:
-```python
-if shot.image_path and Path(shot.image_path).exists():
-    continue  # cache hit
-```
-This means a re-run after a quota error or network failure only regenerates the missing shots.
+## 2. Pipeline Contract & SHA-256 Caching
 
-### Failure Handling
+Every stage reads the validated `storyboard.json` contract (`schema/storyboard.schema.json`) and computes a deterministic SHA-256 digest of its inputs before calling any model.
 
-- Network/API errors are caught per-shot; the pipeline continues to the next shot and records the error on the project row.
-- Background tasks (FastAPI `BackgroundTasks`) run outside the HTTP request so the client doesn't time out.
-- `runs.jsonl` captures every call with status `ok` or `error` for post-mortem analysis.
-
-## Frontend (Next.js App Router)
-
-```
-src/app/
-  page.tsx                   ← Home (Server + Client hybrid)
-  projects/[id]/page.tsx     ← Project detail (polls status every 4 s while pipeline runs)
-  runs/page.tsx              ← Run log viewer
-
-src/components/
-  UploadForm.tsx             ← Drag-and-drop file upload
-  ProjectList.tsx            ← List with status badges
-  PipelinePanel.tsx          ← Stage trigger buttons
-  ShotGrid.tsx               ← Image + audio per shot
-  StatusBadge.tsx            ← Colour-coded status chip
-  RunsTable.tsx              ← Model call log table
-
-src/lib/
-  api.ts                     ← Typed fetch wrappers for all endpoints
+```mermaid
+flowchart TD
+  Start["Read storyboard.json"] --> Validate["Validate StoryboardContract"]
+  Validate --> Hash["Compute SHA-256(shot inputs)"]
+  Hash --> Check{"<output>.sha256 matches?"}
+  Check -->|"Yes (Cache Hit)"| Skip["Reuse existing file"]
+  Check -->|"No (Cache Miss)"| Call["Call AI Provider / FFmpeg"]
+  Call --> Save["Write output + .sha256"]
+  Save --> Log["Append call to runs.jsonl"]
 ```
 
-The frontend polls the project endpoint every 4 seconds while `status` is in an active pipeline state, so the UI updates as shots are generated without a websocket.
+Editing one shot in `storyboard.json` invalidates only that shot's `.sha256` file; all other shots are skipped.
 
-## Data Model
+---
 
+## 3. Data Model (PostgreSQL)
+
+```mermaid
+erDiagram
+  PROJECTS ||--o{ SHOTS : has
+  PROJECTS ||--o{ ASSETS : owns
+  PROJECTS ||--o{ GENERATION_RUNS : tracks
+  SHOTS ||--o{ ASSETS : produces
+  GENERATION_RUNS ||--o{ ASSETS : registers
+
+  PROJECTS {
+    uuid id PK
+    string title
+    string language_code
+    string status
+    jsonb settings
+  }
+  SHOTS {
+    uuid id PK
+    uuid project_id FK
+    int shot_number
+    numeric duration_seconds
+    text visual_prompt
+  }
+  ASSETS {
+    uuid id PK
+    uuid project_id FK
+    string asset_type
+    string object_key
+    bigint size_bytes
+  }
+  GENERATION_RUNS {
+    uuid id PK
+    uuid project_id FK
+    string stage
+    string provider
+    string model
+    string status
+  }
 ```
-Project
-  │  1──1  Storyboard  (logline, audience, intent, raw JSON, path)
-  └──1──n  Shot        (index, prompts, narration, generated asset paths)
-```
 
-## Contracts
+---
 
-- `schema/storyboard.schema.json` — JSON Schema (Draft 7) validated before every pipeline run
-- `runs.jsonl` — append-only NDJSON log of every model call
-- `outputs/` — generated files, addressable by project ID + shot index
+## 4. Failure Handling & Fallbacks
+
+| Stage | Primary | Failure Mode | Fallback / Recovery |
+|---|---|---|---|
+| Script & Storyboard | `gemini-3.8-flash` | HTTP `503` / `429` | Exponential backoff (3 retries), then Groq `openai/gpt-oss-120b` |
+| Keyframes | `@cf/black-forest-labs/flux-1-schnell` | `400` / quota | Automatic fallback to `@cf/black-forest-labs/flux-2-klein-4b` |
+| Narration | `gemini-3.8-flash-tts` | `429` RPM/daily limit | `6s` pacing + `20s/40s` backoff; timed silence WAV on exhaustion |
+| Moving Shots | Wan 2.2 TI2V-5B | GPU quota / missing clip | FFmpeg `zoompan` Ken Burns motion at 24 fps |
+| Music Score | ACE-Step 1.5 | Missing score file | FFmpeg ambient sine pad (`generate_ambient_score`) |
+| Assembly | Local `ffmpeg` | Binary not on host PATH | Automatic Docker fallback via `mwader/static-ffmpeg:7.1` |
+
+---
+
+## 5. Observability
+
+- Every model call logs `ts`, `stage`, `model`, `params`, `seed`, `latency_ms`, `cost_usd`, `status`, and sanitized `note` (`key=***`) to `backend/runs.jsonl`.
+- API runs record lifecycle state (`running` → `succeeded` / `failed`) in `generation_runs`.

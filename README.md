@@ -1,142 +1,162 @@
-# Heritage Short Studio
+# Heritage Film Studio
 
-**AI-powered short film pipeline** — upload a family story document, generate a storyboard, keyframe images, narration audio and assemble a 60–90 s film.
+Turn family and cultural stories into **60–90 second narrated short films** (in both **16:9 horizontal** and **9:16 vertical** formats) with AI-generated visuals, native-language narration, background music, English subtitles, and an AI disclosure end card.
 
-## Stack
+---
+
+## Main Features
+
+- **Multi-Language Story Creation:** Write or upload a story (`.txt`, `.pdf`, `.docx`) in **Amharic**, **English**, **Afaan Oromo**, **Tigrinya**, **Somali**, or **French**.
+- **Choose Output Type:** Generate a full **Video**, **Audio** narration, or **Images** storyboard gallery.
+- **Automatic Background Generation:** Progress updates live from `0%` to `100%` without exposing technical steps to the user.
+- **Media Gallery & Slide Viewer:** Watch videos, listen to narration audio, slide through all frames of a story in a modal gallery, switch `16:9` / `9:16` aspect ratios, download, or remove files.
+- **Shot-Level Caching:** Every stage hashes its inputs (`.sha256`). Changing one shot in `storyboard.json` regenerates **only** that shot.
+- **One-Command CLI:** Anyone can clone the repository and regenerate the film directly from `storyboard.json`.
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Backend API | FastAPI + SQLite (SQLAlchemy) |
-| Frontend | Next.js 16 App Router + TypeScript + Tailwind CSS |
-| Image generation | Cloudflare Workers AI — FLUX.1 schnell |
-| Script + Storyboard | Google Gemini 2.0 Flash |
-| Narration TTS | Google Gemini TTS |
-| Assembly | FFmpeg |
+|---|---|
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, TanStack Query, Lucide Icons |
+| Backend API | FastAPI, SQLAlchemy, PostgreSQL (`psycopg2-binary`) |
+| Script & Storyboard | Google Gemini (`gemini-3.8-flash`) with Groq fallback (`openai/gpt-oss-120b`) |
+| Voice Narration | Google Gemini TTS (`gemini-3.8-flash-tts`) |
+| Keyframe Images | Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell` / `flux-2-klein-4b`) |
+| Music & Moving Shots | ACE-Step 1.5 / ambient fallback, Wan 2.2 TI2V-5B / FFmpeg Ken Burns |
+| Video Assembly | FFmpeg (`sidechaincompress` audio ducking, `-14 LUFS` loudness, burned-in SRT, end card) |
 
-## Quick Start
+---
 
-### 1. Clone & configure secrets
+## Pipeline Workflow
 
-```bash
-git clone <repo>
-cd heritage-short
-
-# Backend secrets
-cp backend/.env.example backend/.env
-# Edit backend/.env — fill in GEMINI_API_KEY, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN
+```text
+Story / Upload  ──►  Script (Gemini / Groq)
+                          │
+                          ▼
+               storyboard.json (validated against schema/storyboard.schema.json)
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   Keyframes          Narration           Music
+(Cloudflare FLUX)   (Gemini TTS)    (ACE-Step / Ambient)
+        │                 │                 │
+        ▼                 │                 │
+  Moving Shots            │                 │
+(Wan 2.2 / Ken Burns)     │                 │
+        └─────────────────┼─────────────────┘
+                          ▼
+               FFmpeg Assembly + English SRT + AI End Card
+                          │
+                          ▼
+          final_16x9.mp4  &  final_9x16.mp4
 ```
 
-### 2. Backend (FastAPI)
+Every AI model call is logged to `backend/runs.jsonl` with timestamp, stage, model, parameters, latency, and status.
 
-```bash
+---
+
+## Environment Setup (`.env.example`)
+
+Copy the example environment files and add your free-tier API keys:
+
+```powershell
+copy backend\.env.example backend\.env
+copy frontend\.env.example frontend\.env.local
+```
+
+Key variables in `backend/.env`:
+
+```env
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="postgres123"
+POSTGRES_DB="heritage_db"
+DATABASE_URL="postgresql+psycopg2://postgres:postgres123@localhost:5432/heritage_db"
+STORAGE_DIR="../storage"
+
+GEMINI_API_KEY="your-google-ai-studio-key"
+GEMINI_MODEL="gemini-3.8-flash"
+GEMINI_TTS_MODEL="gemini-3.8-flash-tts"
+
+CLOUDFLARE_ACCOUNT_ID="your-cloudflare-account-id"
+CLOUDFLARE_API_TOKEN="your-cloudflare-api-token"
+CF_IMAGE_MODEL="@cf/black-forest-labs/flux-1-schnell"
+CF_IMAGE_ALT_MODEL="@cf/black-forest-labs/flux-2-klein-4b"
+
+GROQ_API_KEY="your-groq-api-key"
+GROQ_MODEL="openai/gpt-oss-120b"
+```
+
+---
+
+## How to Install & Run
+
+### Option 1 — Docker Compose (Recommended)
+
+Includes PostgreSQL, Backend (with `ffmpeg` + `ffprobe`), and Frontend:
+
+```powershell
+git clone https://github.com/Leta-Kasahun/heritage-film-studio.git
+cd heritage-film-studio
+copy backend\.env.example backend\.env
+docker compose up --build -d
+```
+
+- **Studio UI:** http://localhost:3000
+- **API Docs:** http://localhost:8000/api/docs
+
+### Option 2 — Local Development
+
+**1. Backend (Python 3.11+ & PostgreSQL):**
+```powershell
 cd backend
 python -m venv .venv
-# Windows:
 .venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-API runs at **http://localhost:8000**  
-Swagger docs: **http://localhost:8000/api/docs**
-
-### 3. Frontend (Next.js)
-
-```bash
+**2. Frontend (Node.js 20+ & pnpm):**
+```powershell
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
-App runs at **http://localhost:3000**
+### Option 3 — One-Command Film Generation (CLI)
 
-### 4. Smoke test (verify all API keys)
+Regenerate both `16:9` and `9:16` MP4 films directly from `storyboard.json`:
 
-```bash
+```powershell
 cd backend
-python ../pipeline/smoke_test.py
+python -m pipeline.runner --storyboard ..\storyboard.json --project-id ethiopian-coffee
 ```
 
-### 5. Assemble final film (requires FFmpeg)
+Outputs are saved in `storage/video/ethiopian-coffee/` (`final_16x9.mp4` and `final_9x16.mp4`).
 
-```bash
-python pipeline/assemble.py --project-id 1
-```
+---
 
-Outputs:
-- `backend/outputs/video/project_1_16x9.mp4`
-- `backend/outputs/video/project_1_9x16.mp4`
+## Repository Structure
 
-## Folder Structure
-
-```
-heritage-short/
+```text
+heritage-film-studio/
 ├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app entry point
-│   │   ├── api/routes/          # projects.py, runs.py
-│   │   ├── core/                # config.py, logging.py
-│   │   ├── db/                  # database.py, models.py
-│   │   ├── schemas/             # project.py (Pydantic)
-│   │   └── services/            # gemini, cloudflare, document_parser, project
-│   ├── requirements.txt
-│   └── .env.example
+│   ├── app/                # FastAPI endpoints, models, repositories, schemas, services
+│   ├── pipeline/           # context, runner, providers, media/ffmpeg, stages
+│   ├── tests/              # API, storyboard contract, and caching tests
+│   └── Dockerfile
 ├── frontend/
-│   └── src/
-│       ├── app/                 # Next.js App Router pages
-│       │   ├── page.tsx         # Home — project list + upload
-│       │   ├── projects/[id]/   # Project detail + pipeline controls
-│       │   └── runs/            # Run log viewer
-│       ├── components/          # UploadForm, ProjectList, PipelinePanel, ShotGrid, RunsTable, StatusBadge
-│       └── lib/api.ts           # Typed API client
-├── pipeline/
-│   ├── smoke_test.py            # Provider connectivity test
-│   ├── validate_storyboard.py   # JSON Schema validation
-│   └── assemble.py              # FFmpeg assembly
+│   ├── src/
+│   │   ├── app/            # Next.js App Router pages
+│   │   ├── components/     # Navbar, Footer, Reveal, CustomSelect, Icon, StatusBadge
+│   │   ├── features/       # projects, storyboard, generation, media
+│   │   └── lib/            # api-client, query-client
+│   └── Dockerfile
 ├── schema/
-│   └── storyboard.schema.json   # JSON Schema contract
-└── runs.jsonl                   # (auto-generated) model call log
+│   └── storyboard.schema.json
+├── docs/                   # ARCHITECTURE, DESIGN, EXPERIMENTS, FAILURES, COSTS, ETHICS
+├── storyboard.json         # Storyboard contract
+├── compose.yaml            # Full-stack Docker Compose
+└── README.md
 ```
-
-## Pipeline Stages
-
-```
-Document Upload
-     │
-     ▼
-Stage 1: Script + Storyboard (Gemini Flash)
-     │  → storyboard.json (validated against schema/)
-     ▼
-Stage 2: Keyframe Images (Cloudflare FLUX)
-     │  → outputs/images/  (cached by shot hash)
-     ▼
-Stage 3: Narration Audio (Gemini TTS)
-     │  → outputs/audio/   (cached per shot)
-     ▼
-Stage 4: Assembly (FFmpeg)
-     │  → 16:9 + 9:16 MP4
-     ▼
-     Done ✅
-```
-
-## Caching
-
-Re-running any stage only regenerates shots whose `image_path` / `audio_path` is missing or the file is gone — cached outputs are skipped.
-
-## Run Logs
-
-Every model call is appended to `backend/runs.jsonl`:
-```json
-{"ts":"…","stage":"keyframe","model":"@cf/…/flux-1-schnell","params":{…},"seed":12345,"latency_ms":1234,"cost_usd":0,"status":"ok"}
-```
-
-View all logs in the UI at **http://localhost:3000/runs**
-
-## Ethical Notes
-
-- Real people's voices or faces require explicit, recorded consent in `ETHICS.md`
-- All generated output carries the AI end-card label
-- Model licences: Gemini (Google ToS), FLUX.1 schnell (Apache 2.0), Wan 2.2 (Apache 2.0), ACE-Step 1.5 (MIT)
